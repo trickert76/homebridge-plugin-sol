@@ -1,4 +1,4 @@
-import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
+import type { CharacteristicValue, PlatformAccessory } from 'homebridge';
 
 import type { SOLHomebridgePlatform } from './platform.js';
 import { SolApi, SolDevice } from './sol-api.js';
@@ -9,17 +9,6 @@ import { SolApi, SolDevice } from './sol-api.js';
  * Each accessory may expose multiple services of different service types.
  */
 export class SOLPlatformAccessory {
-  private service: Service;
-
-  /**
-   * These are just used to create a working example
-   * You should implement your own code to track the state of your accessory
-   */
-  private exampleStates = {
-    On: false,
-    Brightness: 100,
-  };
-
   constructor(
     private readonly platform: SOLHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
@@ -31,54 +20,121 @@ export class SOLPlatformAccessory {
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Thoralf Rickert-Wendt')
       .setCharacteristic(this.platform.Characteristic.Model, device.name)
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, device.id);
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, device.id)
+      .setCharacteristic(this.platform.Characteristic.Name, device.name);
 
-    // https://developers.homebridge.io/#/service/Battery
-    //  - for Sungrow
-    //  - for EVCC Wallbox/Vehicle
-    // https://developers.homebridge.io/#/service/CarbonDioxideSensor
-    //  - for Shelly
-    // https://developers.homebridge.io/#/service/CarbonMonoxideSensor
-    //  - for Shelly
-    // https://developers.homebridge.io/#/service/HeaterCooler
-    //  - for Bosch
-    // https://developers.homebridge.io/#/service/HumiditySensor
-    //  - for Shelly
-    // https://developers.homebridge.io/#/service/LightSensor
-    //  - for Shelly
-    // https://developers.homebridge.io/#/service/Lightbulb
-    //  - for Hue, Shelly, Fritzbox
-    // https://developers.homebridge.io/#/service/PowerManagement
-    //  - fir Fritzbox, Shelly, Sungrow, EVCC ???
-    // https://developers.homebridge.io/#/service/SmokeSensor
-    //  - for Shelly
-    // https://developers.homebridge.io/#/service/Switch
-    //  - for Shelly, Fritzbox, Hue
-    // https://developers.homebridge.io/#/service/TemperatureSensor
-    //  - for Shelly, Fritzbox
-    // https://developers.homebridge.io/#/service/WiFiRouter
-    //  - for Fritzbox
+    // HAP-NodeJS WARNING: The accessory 'Zimmer Mats-Ole' has an invalid 'Name' characteristic ('Zimmer Mats-Ole'). 
+    // Please use only alphanumeric, space, and apostrophe characters. Ensure it starts and ends with an alphabetic 
+    // or numeric character, and avoid emojis. This may prevent the accessory from being added in the Home App or
+    // cause unresponsiveness.
+
+    switch (device.type) {
+    case 'lightbulb': {
+      // https://developers.homebridge.io/#/service/Lightbulb
+      //  - for Hue, Shelly, Fritzbox
+    
+      // get the LightBulb service if it exists, otherwise create a new LightBulb service
+      // you can create multiple services for each accessory
+      const lightbulb = this.accessory.getService(this.platform.Service.Lightbulb) 
+                     || this.accessory.addService(this.platform.Service.Lightbulb);
+
+      // register handlers for the On/Off Characteristic
+      lightbulb.getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
+        .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
+        
+      if (device.getCapabilities().brightness) {
+        // register handlers for the Brightness Characteristic
+        lightbulb.getCharacteristic(this.platform.Characteristic.Brightness)
+          .onGet(this.getBrightness.bind(this))
+          .onSet(this.setBrightness.bind(this)); // SET - bind to the 'setBrightness` method below
+      }
+      
+      if (device.getCapabilities().color) {
+        // need to find a way from rgb to hue, saturation, color temperature
+      }
+
+      if (device.getCapabilities().temperature) {
+        const temperatureSensor = this.accessory.getService(this.platform.Service.TemperatureSensor) 
+                               || this.accessory.addService(this.platform.Service.TemperatureSensor);
+        temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+          .onGet(this.getCurrentTemperature.bind(this));
+      }
+      break;
+    }
+
+    case 'daylight': {
+      // https://developers.homebridge.io/#/service/LightSensor
+      //  - for Shelly
+      const lightsensor = this.accessory.getService(this.platform.Service.LightSensor)
+                       || this.accessory.addService(this.platform.Service.LightSensor);
+      // register handlers for the Brightness Characteristic
+      lightsensor.getCharacteristic(this.platform.Characteristic.CurrentAmbientLightLevel)
+        .onGet(this.getDaylight.bind(this));
+      break;
+    }
+
+    case 'sensor': {
+      // https://developers.homebridge.io/#/service/Battery
+      //  - for Sungrow
+      //  - for EVCC Wallbox/Vehicle
+      
+      // https://developers.homebridge.io/#/service/CarbonDioxideSensor
+      //  - for Shelly
+
+      // https://developers.homebridge.io/#/service/CarbonMonoxideSensor
+      //  - for Shelly
+
+      // https://developers.homebridge.io/#/service/HeaterCooler
+      //  - for Bosch
+
+      // https://developers.homebridge.io/#/service/HumiditySensor
+      //  - for Shelly
+      if (device.getCapabilities().humidity) {
+        const temperatureSensor = this.accessory.getService(this.platform.Service.HumiditySensor)
+                              || this.accessory.addService(this.platform.Service.HumiditySensor);
+        temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+          .onGet(this.getCurrentHumidity.bind(this));
+      }
+
+      // https://developers.homebridge.io/#/service/PowerManagement
+      //  - fir Fritzbox, Shelly, Sungrow, EVCC ???
+
+      // https://developers.homebridge.io/#/service/SmokeSensor
+      //  - for Shelly
+
+      // https://developers.homebridge.io/#/service/TemperatureSensor
+      //  - for Shelly, Fritzbox
+      if (device.getCapabilities().temperature) {
+        const temperatureSensor = this.accessory.getService(this.platform.Service.TemperatureSensor)
+                              || this.accessory.addService(this.platform.Service.TemperatureSensor);
+        temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
+          .onGet(this.getCurrentTemperature.bind(this));
+      }
+      
+      // https://developers.homebridge.io/#/service/WiFiRouter
+      //  - for Fritzbox
+
+      break;
+    }
+
+    default: {
+      // https://developers.homebridge.io/#/service/Switch
+      //  - for Shelly, Fritzbox, Hue
+      const mySwitch = this.accessory.getService(this.platform.Service.Switch) 
+                    || this.accessory.addService(this.platform.Service.Switch);
+      // register handlers for the Brightness Characteristic
+      mySwitch.getCharacteristic(this.platform.Characteristic.On)
+        .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
+        .onGet(this.getOn.bind(this));
+      break;
+    }
+    }
 
 
-    // get the LightBulb service if it exists, otherwise create a new LightBulb service
-    // you can create multiple services for each accessory
-    this.service = this.accessory.getService(this.platform.Service.Lightbulb) || this.accessory.addService(this.platform.Service.Lightbulb);
 
-    // set the service name, this is what is displayed as the default name on the Home app
-    // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
 
-    // each service must implement at-minimum the "required characteristics" for the given service type
-    // see https://developers.homebridge.io/#/service/Lightbulb
 
-    // register handlers for the On/Off Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
-      .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
-
-    // register handlers for the Brightness Characteristic
-    this.service.getCharacteristic(this.platform.Characteristic.Brightness)
-      .onSet(this.setBrightness.bind(this)); // SET - bind to the 'setBrightness` method below
 
     /**
      * Creating multiple services of the same type.
@@ -126,10 +182,8 @@ export class SOLPlatformAccessory {
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
    */
   async setOn(value: CharacteristicValue) {
-    // implement your own code to turn your device on/off
-    this.exampleStates.On = value as boolean;
-
-    this.platform.log.debug('Set Characteristic On ->', value);
+    this.device.getState().on = value as boolean;
+    this.platform.log.debug('['+this.device.name+'] Set Characteristic On ->', value);
   }
 
   /**
@@ -146,25 +200,41 @@ export class SOLPlatformAccessory {
    * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
    */
   async getOn(): Promise<CharacteristicValue> {
-    // implement your own code to check if the device is on
-    const isOn = this.exampleStates.On;
-
-    this.platform.log.debug('Get Characteristic On ->', isOn);
-
     // if you need to return an error to show the device as "Not Responding" in the Home app:
     // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-
+    const isOn = this.device.getState().on;
+    this.platform.log.debug('['+this.device.name+'] Get Characteristic On ->', isOn);
     return isOn;
   }
 
-  /**
-   * Handle "SET" requests from HomeKit
-   * These are sent when the user changes the state of an accessory, for example, changing the Brightness
-   */
   async setBrightness(value: CharacteristicValue) {
-    // implement your own code to set the brightness
-    this.exampleStates.Brightness = value as number;
-
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+    this.device.getState().brightness = value as number;
+    this.platform.log.debug('['+this.device.name+'] Set Characteristic Brightness -> ', value);
   }
+  
+  async getBrightness() :Promise<CharacteristicValue> {
+    const brightness = this.device.getState().brightness;
+    this.platform.log.debug('['+this.device.name+'] Get Characteristic Brightness ->', brightness);
+    return brightness;
+  }
+  
+  async getDaylight() :Promise<CharacteristicValue> {
+    const currentValue = this.device.getState().on ? 100000 : 0.0001;
+    this.platform.log.debug('['+this.device.name+'] Get Characteristics Daylight ->', currentValue);
+    return currentValue;
+  }
+  
+  async getCurrentTemperature() {
+    const currentValue = this.device.getState().temperature;
+    this.platform.log.debug('['+this.device.name+'] Get Characteristics Temperature ->', currentValue);
+    return currentValue;
+  }
+  
+  async getCurrentHumidity() {
+    const currentValue = this.device.getState().humidity;
+    this.platform.log.debug('['+this.device.name+'] Get Characteristics Humidity ->', currentValue);
+    return currentValue;
+  }
+
+
 }
