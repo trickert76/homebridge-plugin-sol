@@ -6,81 +6,22 @@
 
 <span align="center">
 
-# Homebridge Platform Plugin Template
+# Homebridge Platform Plugin SOL
 
 </span>
 
-> [!IMPORTANT]
-> **Homebridge v2.0 Information**
->
-> This template currently has a
-> - `package.json -> engines.homebridge` value of `"^1.8.0 || ^2.0.0-beta.0"`
-> - `package.json -> devDependencies.homebridge` value of `"^2.0.0-beta.0"`
->
-> This is to ensure that your plugin will build and run on both Homebridge v1 and v2.
->
-> Once Homebridge v2.0 has been released, you can remove the `-beta.0` in both places.
+This is the homebridge plugin for SOL smarthome controlled devices. 
+It is a very specific setup for one smarthome and not designed to work on other places.
+SOL is a specific bridge connector for Fritzbox, Shelly, EVCC, Sungrow and Hue with a very specific frontend and caching mechanism.
 
-> [!IMPORTANT]
-> **Node v22 Information**
->
-> This template currently has a
-> - `package.json -> engines.node` value of `"^18.20.4 || ^20.16.0 || ^22.5.1"`
->
-> This is to remind developers that plugins should be supporting Node v22 from October 2024.
+This plugin provides several device types, like:
 
----
+- switches (Fritzbox, Shelly)
+- ligthbulbs (Hue)
+- sensors for light and humidity (Shelly)
+- sensors for battery and power management (EVCC, Fritzbox, Shelly, Sungrow).
 
-This is a template Homebridge dynamic platform plugin and can be used as a base to help you get started developing your own plugin.
-
-This template should be used in conjunction with the [developer documentation](https://developers.homebridge.io/). A full list of all supported service types, and their characteristics is available on this site.
-
-### Clone As Template
-
-Click the link below to create a new GitHub Repository using this template, or click the *Use This Template* button above.
-
-<span align="center">
-
-### [Create New Repository From Template](https://github.com/homebridge/homebridge-plugin-template/generate)
-
-</span>
-
-### Setup Development Environment
-
-To develop Homebridge plugins you must have Node.js 18 or later installed, and a modern code editor such as [VS Code](https://code.visualstudio.com/). This plugin template uses [TypeScript](https://www.typescriptlang.org/) to make development easier and comes with pre-configured settings for [VS Code](https://code.visualstudio.com/) and ESLint. If you are using VS Code install these extensions:
-
-- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-
-### Install Development Dependencies
-
-Using a terminal, navigate to the project folder and run this command to install the development dependencies:
-
-```shell
-npm install
-```
-
-### Update package.json
-
-Open the [`package.json`](./package.json) and change the following attributes:
-
-- `name` - this should be prefixed with `homebridge-` or `@username/homebridge-`, is case-sensitive, and contains no spaces nor special characters apart from a dash `-`
-- `displayName` - this is the "nice" name displayed in the Homebridge UI
-- `homepage` - link to your GitHub repo's `README.md`
-- `repository.url` - link to your GitHub repo
-- `bugs.url` - link to your GitHub repo issues page
-
-When you are ready to publish the plugin you should set `private` to false, or remove the attribute entirely.
-
-### Update Plugin Defaults
-
-Open the [`src/settings.ts`](./src/settings.ts) file and change the default values:
-
-- `PLATFORM_NAME` - Set this to be the name of your platform. This is the name of the platform that users will use to register the plugin in the Homebridge `config.json`.
-- `PLUGIN_NAME` - Set this to be the same name you set in the [`package.json`](./package.json) file.
-
-Open the [`config.schema.json`](./config.schema.json) file and change the following attribute:
-
-- `pluginAlias` - set this to match the `PLATFORM_NAME` you defined in the previous step.
+This repository is based on the template Homebridge dynamic platform plugin together with the [developer documentation](https://developers.homebridge.io/).
 
 ### Build Plugin
 
@@ -91,6 +32,16 @@ npm run build
 ```
 
 ### Link To Homebridge
+
+We use a local home bridge installation to develop the plugin.
+
+```shell
+sudo npm install -g --unsafe-perm homebridge homebridge-config-ui-x
+sudo hb-service install
+sudo hb-service status
+```
+
+This installs a local homebridge.
 
 Run this command so your global installation of Homebridge can discover the plugin in your development environment:
 
@@ -140,27 +91,6 @@ You can now start customising the plugin template to suit your requirements.
 - [`src/platform.ts`](./src/platform.ts) - this is where your device setup and discovery should go.
 - [`src/platformAccessory.ts`](./src/platformAccessory.ts) - this is where your accessory control logic should go, you can rename or create multiple instances of this file for each accessory type you need to implement as part of your platform plugin. You can refer to the [developer documentation](https://developers.homebridge.io/) to see what characteristics you need to implement for each service type.
 - [`config.schema.json`](./config.schema.json) - update the config schema to match the config you expect from the user. See the [Plugin Config Schema Documentation](https://developers.homebridge.io/#/config-schema).
-
-### Versioning Your Plugin
-
-Given a version number `MAJOR`.`MINOR`.`PATCH`, such as `1.4.3`, increment the:
-
-1. **MAJOR** version when you make breaking changes to your plugin,
-2. **MINOR** version when you add functionality in a backwards compatible manner, and
-3. **PATCH** version when you make backwards compatible bug fixes.
-
-You can use the `npm version` command to help you with this:
-
-```shell
-# major update / breaking changes
-npm version major
-
-# minor update / new features
-npm version update
-
-# patch / bugfixes
-npm version patch
-```
 
 ### Publish Package
 

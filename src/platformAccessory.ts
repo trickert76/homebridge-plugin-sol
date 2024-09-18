@@ -1,13 +1,14 @@
 import type { CharacteristicValue, PlatformAccessory, Service } from 'homebridge';
 
-import type { ExampleHomebridgePlatform } from './platform.js';
+import type { SOLHomebridgePlatform } from './platform.js';
+import { SolApi, SolDevice } from './sol-api.js';
 
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class ExamplePlatformAccessory {
+export class SOLPlatformAccessory {
   private service: Service;
 
   /**
@@ -20,14 +21,44 @@ export class ExamplePlatformAccessory {
   };
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: SOLHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
+    private readonly device: SolDevice,
+    private readonly solApi: SolApi,
   ) {
     // set accessory information
+    // see https://developers.homebridge.io/#/service/AccessoryInformation
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Thoralf Rickert-Wendt')
+      .setCharacteristic(this.platform.Characteristic.Model, device.name)
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, device.id);
+
+    // https://developers.homebridge.io/#/service/Battery
+    //  - for Sungrow
+    //  - for EVCC Wallbox/Vehicle
+    // https://developers.homebridge.io/#/service/CarbonDioxideSensor
+    //  - for Shelly
+    // https://developers.homebridge.io/#/service/CarbonMonoxideSensor
+    //  - for Shelly
+    // https://developers.homebridge.io/#/service/HeaterCooler
+    //  - for Bosch
+    // https://developers.homebridge.io/#/service/HumiditySensor
+    //  - for Shelly
+    // https://developers.homebridge.io/#/service/LightSensor
+    //  - for Shelly
+    // https://developers.homebridge.io/#/service/Lightbulb
+    //  - for Hue, Shelly, Fritzbox
+    // https://developers.homebridge.io/#/service/PowerManagement
+    //  - fir Fritzbox, Shelly, Sungrow, EVCC ???
+    // https://developers.homebridge.io/#/service/SmokeSensor
+    //  - for Shelly
+    // https://developers.homebridge.io/#/service/Switch
+    //  - for Shelly, Fritzbox, Hue
+    // https://developers.homebridge.io/#/service/TemperatureSensor
+    //  - for Shelly, Fritzbox
+    // https://developers.homebridge.io/#/service/WiFiRouter
+    //  - for Fritzbox
+
 
     // get the LightBulb service if it exists, otherwise create a new LightBulb service
     // you can create multiple services for each accessory
@@ -35,7 +66,7 @@ export class ExamplePlatformAccessory {
 
     // set the service name, this is what is displayed as the default name on the Home app
     // in this example we are using the name we stored in the `accessory.context` in the `discoverDevices` method.
-    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.exampleDisplayName);
+    this.service.setCharacteristic(this.platform.Characteristic.Name, accessory.context.device.name);
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
@@ -61,11 +92,11 @@ export class ExamplePlatformAccessory {
      */
 
     // Example: add two "motion sensor" services to the accessory
-    const motionSensorOneService = this.accessory.getService('Motion Sensor One Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
+    // const motionSensorOneService = this.accessory.getService('Motion Sensor One Name')
+    //   || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor One Name', 'YourUniqueIdentifier-1');
 
-    const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name')
-      || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
+    // const motionSensorTwoService = this.accessory.getService('Motion Sensor Two Name')
+    //   || this.accessory.addService(this.platform.Service.MotionSensor, 'Motion Sensor Two Name', 'YourUniqueIdentifier-2');
 
     /**
      * Updating characteristics values asynchronously.
@@ -76,18 +107,18 @@ export class ExamplePlatformAccessory {
      * the `updateCharacteristic` method.
      *
      */
-    let motionDetected = false;
-    setInterval(() => {
-      // EXAMPLE - inverse the trigger
-      motionDetected = !motionDetected;
+    // let motionDetected = false;
+    // setInterval(() => {
+    // EXAMPLE - inverse the trigger
+    // motionDetected = !motionDetected;
 
-      // push the new value to HomeKit
-      motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
-      motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
+    // push the new value to HomeKit
+    // motionSensorOneService.updateCharacteristic(this.platform.Characteristic.MotionDetected, motionDetected);
+    // motionSensorTwoService.updateCharacteristic(this.platform.Characteristic.MotionDetected, !motionDetected);
 
-      this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
-      this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
-    }, 10000);
+    // this.platform.log.debug('Triggering motionSensorOneService:', motionDetected);
+    // this.platform.log.debug('Triggering motionSensorTwoService:', !motionDetected);
+    // }, 10000);
   }
 
   /**
