@@ -1,6 +1,8 @@
 import type { Logging } from 'homebridge';
 import axios from 'axios';
 
+/* eslint-disable  @typescript-eslint/no-explicit-any */
+
 export class SolApi {
   constructor(
     private readonly log: Logging,

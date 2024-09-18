@@ -2,7 +2,7 @@ import type { API, Characteristic, DynamicPlatformPlugin, Logging, PlatformAcces
 
 import { SOLPlatformAccessory } from './platformAccessory.js';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
-import { SolApi, SolDevice } from './sol-api.js';
+import { SolApi } from './sol-api.js';
 
 /**
  * HomebridgePlatform
