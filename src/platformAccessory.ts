@@ -19,6 +19,7 @@ export class SOLPlatformAccessory {
     // see https://developers.homebridge.io/#/service/AccessoryInformation
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
       .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Thoralf Rickert-Wendt')
+      .setCharacteristic(this.platform.Characteristic.FirmwareRevision, '')
       .setCharacteristic(this.platform.Characteristic.Model, device.name)
       .setCharacteristic(this.platform.Characteristic.SerialNumber, device.id)
       .setCharacteristic(this.platform.Characteristic.Name, device.name);
@@ -43,18 +44,24 @@ export class SOLPlatformAccessory {
         .onSet(this.setOn.bind(this)) // SET - bind to the `setOn` method below
         .onGet(this.getOn.bind(this)); // GET - bind to the `getOn` method below
         
-      if (device.getCapabilities().brightness) {
+      if (device.capability.brightness) {
         // register handlers for the Brightness Characteristic
         lightbulb.getCharacteristic(this.platform.Characteristic.Brightness)
           .onGet(this.getBrightness.bind(this))
           .onSet(this.setBrightness.bind(this)); // SET - bind to the 'setBrightness` method below
       }
       
-      if (device.getCapabilities().color) {
+      if (device.capability.color) {
         // need to find a way from rgb to hue, saturation, color temperature
+        lightbulb.getCharacteristic(this.platform.Characteristic.Saturation)
+          .onGet(this.getSaturation.bind(this))
+          .onSet(this.setSaturation.bind(this));
+        lightbulb.getCharacteristic(this.platform.Characteristic.Hue)
+          .onGet(this.getHue.bind(this))
+          .onSet(this.setHue.bind(this));
       }
 
-      if (device.getCapabilities().temperature) {
+      if (device.capability.temperature) {
         const temperatureSensor = this.accessory.getService(this.platform.Service.TemperatureSensor) 
                                || this.accessory.addService(this.platform.Service.TemperatureSensor);
         temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -90,7 +97,7 @@ export class SOLPlatformAccessory {
 
       // https://developers.homebridge.io/#/service/HumiditySensor
       //  - for Shelly
-      if (device.getCapabilities().humidity) {
+      if (device.capability.humidity) {
         const temperatureSensor = this.accessory.getService(this.platform.Service.HumiditySensor)
                               || this.accessory.addService(this.platform.Service.HumiditySensor);
         temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
@@ -98,14 +105,14 @@ export class SOLPlatformAccessory {
       }
 
       // https://developers.homebridge.io/#/service/PowerManagement
-      //  - fir Fritzbox, Shelly, Sungrow, EVCC ???
+      //  - for Fritzbox, Shelly, Sungrow, EVCC ???
 
       // https://developers.homebridge.io/#/service/SmokeSensor
       //  - for Shelly
 
       // https://developers.homebridge.io/#/service/TemperatureSensor
       //  - for Shelly, Fritzbox
-      if (device.getCapabilities().temperature) {
+      if (device.capability.temperature) {
         const temperatureSensor = this.accessory.getService(this.platform.Service.TemperatureSensor)
                               || this.accessory.addService(this.platform.Service.TemperatureSensor);
         temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentTemperature)
@@ -130,11 +137,6 @@ export class SOLPlatformAccessory {
       break;
     }
     }
-
-
-
-
-
 
     /**
      * Creating multiple services of the same type.
@@ -182,59 +184,56 @@ export class SOLPlatformAccessory {
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
    */
   async setOn(value: CharacteristicValue) {
-    this.device.getState().on = value as boolean;
     this.platform.log.debug('['+this.device.name+'] Set Characteristic On ->', value);
+    const newDevice = this.solApi.setState(this.device, value as boolean);
+    Promise.all([newDevice]).then(() => this.device.state.on = value as boolean);
   }
 
-  /**
-   * Handle the "GET" requests from HomeKit
-   * These are sent when HomeKit wants to know the current state of the accessory, for example, checking if a Light bulb is on.
-   *
-   * GET requests should return as fast as possible. A long delay here will result in
-   * HomeKit being unresponsive and a bad user experience in general.
-   *
-   * If your device takes time to respond you should update the status of your device
-   * asynchronously instead using the `updateCharacteristic` method instead.
-
-   * @example
-   * this.service.updateCharacteristic(this.platform.Characteristic.On, true)
-   */
   async getOn(): Promise<CharacteristicValue> {
-    // if you need to return an error to show the device as "Not Responding" in the Home app:
-    // throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
-    const isOn = this.device.getState().on;
-    this.platform.log.debug('['+this.device.name+'] Get Characteristic On ->', isOn);
-    return isOn;
+    return this.device.state.on;
   }
 
   async setBrightness(value: CharacteristicValue) {
-    this.device.getState().brightness = value as number;
-    this.platform.log.debug('['+this.device.name+'] Set Characteristic Brightness -> ', value);
+    this.platform.log.debug('['+this.device.name+'] Set Characteristic Brightness ->', value);
+    const newDevice = this.solApi.setBrightness(this.device, value as number);
+    Promise.all([newDevice]).then(() => this.device.state.brightness = value as number);
   }
-  
+
   async getBrightness() :Promise<CharacteristicValue> {
-    const brightness = this.device.getState().brightness;
-    this.platform.log.debug('['+this.device.name+'] Get Characteristic Brightness ->', brightness);
-    return brightness;
+    return this.device.state.brightness;
   }
-  
+
+
+  async setSaturation(value: CharacteristicValue) {
+    this.platform.log.debug('['+this.device.name+'] Set Characteristic Saturation ->', value);
+    const newDevice = this.solApi.setColor(this.device, this.device.state.hsb.saturation2hex(value as number));
+    Promise.all([newDevice]).then(() => this.device.state.hsb.saturation = value as number);
+  }
+
+  async getSaturation() :Promise<CharacteristicValue> {
+    return this.device.state.hsb.saturation;
+  }
+
+
+  async setHue(value: CharacteristicValue) {
+    this.platform.log.debug('['+this.device.name+'] Set Characteristic Hue ->', value);
+    const newDevice = this.solApi.setColor(this.device, this.device.state.hsb.hue2hex(value as number));
+    Promise.all([newDevice]).then(() => this.device.state.hsb.hue = value as number);
+  }
+
+  async getHue() :Promise<CharacteristicValue> {
+    return this.device.state.hsb.hue;
+  }
+
   async getDaylight() :Promise<CharacteristicValue> {
-    const currentValue = this.device.getState().on ? 100000 : 0.0001;
-    this.platform.log.debug('['+this.device.name+'] Get Characteristics Daylight ->', currentValue);
-    return currentValue;
+    return this.device.state.on ? 100000 : 0.0001;
   }
   
   async getCurrentTemperature() {
-    const currentValue = this.device.getState().temperature;
-    this.platform.log.debug('['+this.device.name+'] Get Characteristics Temperature ->', currentValue);
-    return currentValue;
+    return this.device.state.temperature;
   }
   
   async getCurrentHumidity() {
-    const currentValue = this.device.getState().humidity;
-    this.platform.log.debug('['+this.device.name+'] Get Characteristics Humidity ->', currentValue);
-    return currentValue;
+    return this.device.state.humidity;
   }
-
-
 }
