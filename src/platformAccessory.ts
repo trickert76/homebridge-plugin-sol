@@ -2,6 +2,7 @@ import type { CharacteristicValue, PlatformAccessory } from 'homebridge';
 
 import type { SOLHomebridgePlatform } from './platform.js';
 import { SolApi, SolDevice } from './sol-api.js';
+import { PLUGIN_AUTHOR } from './settings.js';
 
 /**
  * Platform Accessory
@@ -18,10 +19,11 @@ export class SOLPlatformAccessory {
     // set accessory information
     // see https://developers.homebridge.io/#/service/AccessoryInformation
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Thoralf Rickert-Wendt')
-      .setCharacteristic(this.platform.Characteristic.FirmwareRevision, '')
-      .setCharacteristic(this.platform.Characteristic.Model, device.name)
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, PLUGIN_AUTHOR + ' ['+device.bridge+']')
+      .setCharacteristic(this.platform.Characteristic.Model, this.getModel())
       .setCharacteristic(this.platform.Characteristic.SerialNumber, device.id)
+      .setCharacteristic(this.platform.Characteristic.Active, device.state.reachable)
+      .setCharacteristic(this.platform.Characteristic.FirmwareRevision, device.version)
       .setCharacteristic(this.platform.Characteristic.Name, device.name);
 
     // HAP-NodeJS WARNING: The accessory 'Zimmer Mats-Ole' has an invalid 'Name' characteristic ('Zimmer Mats-Ole'). 
@@ -80,12 +82,26 @@ export class SOLPlatformAccessory {
         .onGet(this.getDaylight.bind(this));
       break;
     }
-
+    
     case 'sensor': {
       // https://developers.homebridge.io/#/service/Battery
-      //  - for Sungrow
-      //  - for EVCC Wallbox/Vehicle
-      
+      switch (device.reference) {
+      case 'evcc_vehicle':
+      case 'evcc_house_akku': {
+        const batterySensor = this.accessory.getService(this.platform.Service.Battery)
+                              || this.accessory.addService(this.platform.Service.Battery);
+
+        // create handlers for required characteristics
+        batterySensor.getCharacteristic(this.platform.Characteristic.BatteryLevel)
+          .onGet(this.getBatteryLevel.bind(this));
+        batterySensor.getCharacteristic(this.platform.Characteristic.ChargingState)
+          .onGet(this.getChargingState.bind(this));
+        batterySensor.getCharacteristic(this.platform.Characteristic.StatusLowBattery)
+          .onGet(this.getLowBatteryStatus.bind(this));
+        break;
+      }
+      }
+
       // https://developers.homebridge.io/#/service/CarbonDioxideSensor
       //  - for Shelly
 
@@ -98,9 +114,9 @@ export class SOLPlatformAccessory {
       // https://developers.homebridge.io/#/service/HumiditySensor
       //  - for Shelly
       if (device.capability.humidity) {
-        const temperatureSensor = this.accessory.getService(this.platform.Service.HumiditySensor)
+        const humiditySensor = this.accessory.getService(this.platform.Service.HumiditySensor)
                               || this.accessory.addService(this.platform.Service.HumiditySensor);
-        temperatureSensor.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
+        humiditySensor.getCharacteristic(this.platform.Characteristic.CurrentRelativeHumidity)
           .onGet(this.getCurrentHumidity.bind(this));
       }
 
@@ -184,12 +200,21 @@ export class SOLPlatformAccessory {
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
    */
   async setOn(value: CharacteristicValue) {
+    // if you need to return an error to show the device as "Not Responding" in the Home app:
+    if (!this.device.state.reachable) {
+      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+
     this.platform.log.debug('['+this.device.name+'] Set Characteristic On ->', value);
     const newDevice = this.solApi.setState(this.device, value as boolean);
     Promise.all([newDevice]).then(() => this.device.state.on = value as boolean);
   }
 
   async getOn(): Promise<CharacteristicValue> {
+    if (!this.device.state.reachable) {
+      throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+
     return this.device.state.on;
   }
 
@@ -229,11 +254,43 @@ export class SOLPlatformAccessory {
     return this.device.state.on ? 100000 : 0.0001;
   }
   
-  async getCurrentTemperature() {
+  async getCurrentTemperature() :Promise<CharacteristicValue> {
     return this.device.state.temperature;
   }
   
-  async getCurrentHumidity() {
+  async getCurrentHumidity() :Promise<CharacteristicValue> {
     return this.device.state.humidity;
+  }
+  
+  async getBatteryLevel() :Promise<CharacteristicValue> {
+    return this.device.state.power;
+  }
+
+  async getChargingState() :Promise<CharacteristicValue> {
+    return this.platform.Characteristic.ChargingState.NOT_CHARGING;
+  }
+
+  async getLowBatteryStatus() :Promise<CharacteristicValue> {
+    if (this.device.state.power < 1) {
+      return this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW;
+    }
+    return this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL;
+  }
+
+  getModel() {
+    switch (this.device.bridge) {
+    case 'hue': {
+      return this.device.extra.type;
+    }
+    case 'shelly': {
+      return this.device.bridge + '-' + this.device.extra.type + '-' + this.device.extra.version + ' ' + this.device.extra.ip;
+    }
+    case 'fritzbox': {
+      return this.device.bridge + '-' + this.device.extra.type;
+    }
+    default: {
+      return this.device.name;
+    }
+    } 
   }
 }

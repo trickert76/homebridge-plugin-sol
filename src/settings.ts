@@ -7,3 +7,6 @@ export const PLATFORM_NAME = 'SOLHomebridgePlugin';
  * This must match the name of your plugin as defined the package.json
  */
 export const PLUGIN_NAME = 'homebridge-plugin-sol';
+
+
+export const PLUGIN_AUTHOR = 'Thoralf Rickert-Wendt';

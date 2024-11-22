@@ -16,16 +16,20 @@ export class SolApi {
    */
   public async getDevices() :Promise<SolDevice[]> {
     const devices : SolDevice[] = [];
-    const url: string = `${this.endpoint}/api/devices`;
+    const url: string = `${this.endpoint}/api/homebridge/devices`;
     try {
       const response = await axios.get(url);
       const data = response.data;
       
-      if ('devices' in data) {
-        data.devices.forEach( (device: any) => {
-          this.log.info(`Received Status for SOL Device ${device.name}`);
-          devices.push(new SolDevice(device, data.status.version));
-        });
+      if (typeof data === 'string') {
+        this.log.info(`ERROR received error from ${url}: ${data}`);
+      } else {
+        if ('devices' in data) {
+          data.devices.forEach( (device: any) => {
+            this.log.info(`Received Status for SOL Device ${device.name}`);
+            devices.push(new SolDevice(device, data.status.version));
+          });
+        }
       }
     } catch (exception) {
       this.log.error(`ERROR received from ${url}: ${exception}\n`);
@@ -93,9 +97,11 @@ export class SolDevice {
   public name: string;
   public room: string;
   public type: string;
+  public singleton: boolean;
   public bridge: string;
   public capability: SolCapability;
   public state: SolState;
+  public extra: any;
   public elements: SolDeviceElement[];
   public version: string;
   
@@ -106,9 +112,11 @@ export class SolDevice {
     this.name = device.name;
     this.room = device.room;
     this.type = device.type;
+    this.singleton = device.singleton;
     this.bridge = device.bridge;
     this.capability = new SolCapability(device.capabilities);
     this.state = new SolState(device.state);
+    this.extra = device.extra;
     this.elements = [];
     device.elements.forEach((element :any) => this.elements.push(new SolDeviceElement(element)));
   }
@@ -121,6 +129,7 @@ export class SolDeviceElement {
   public checked: string;
   public capability: SolCapability;
   public state: SolState;
+  public extra: any;
 
   constructor(element :any) {
     this.id = element.id;
@@ -129,6 +138,7 @@ export class SolDeviceElement {
     this.checked = element.checked;
     this.capability = new SolCapability(element.capabilities);
     this.state = new SolState(element.state);
+    this.extra = element.extra;
   }
 }
 
@@ -168,7 +178,7 @@ export class SolState {
 
     this.brightness = 'brightness' in state ? state.brightness : 0;
     this.rgb = 'rgb' in state ? state.rgb : '#000000';
-    this.hsb = new SolHSB(this.rgb);
+    this.hsb = new SolHSB(state.hsb);
     this.power = 'power' in state ? state.power : 0;
     this.temperature = 'temperature' in state ? state.temperature : 0;
     this.humidity = 'humidity' in state ? state.humidity : 0;
@@ -181,12 +191,11 @@ export class SolHSB {
   public saturation: number = 0;
   public brightness: number = 0;
 
-  constructor(rgb :string) {
-    if (rgb != null) {
-      const color = this.rgb2hsb(this.hex2rgb(rgb));
-      this.hue = color.h;
-      this.saturation = color.s;
-      this.brightness = color.b;
+  constructor(color :any) {
+    if (color != null) {
+      this.hue = color.hue;
+      this.saturation = color.saturation;
+      this.brightness = color.brightness;
     }
   }
 
